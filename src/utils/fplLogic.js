@@ -198,3 +198,100 @@ export function generateStrategyPicks(bootstrapData, fixtures, userTeam, mode = 
         swingPicks: enhancedSwingPicks
     };
 }
+export function enhancePlayer(p, teams) {
+    if (!p) return null;
+    const team = teams.find(t => t.id === p.team);
+    return {
+        ...p,
+        team_name: team ? team.name : 'Unknown',
+        team_short: team ? team.short_name : 'UNK',
+        image_url: `https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png`,
+        display_price: (p.now_cost / 10).toFixed(1)
+    };
+}
+
+export function analyzeMiniLeague(userTeam, rivalTeams, bootstrapData) {
+    const userPlayerIds = new Set(userTeam.picks.map(p => p.element));
+    const players = bootstrapData.elements;
+    const teams = bootstrapData.teams;
+
+    // 1. Identify Differentials (User owns, Rivals don't)
+    const rivalPlayerCounts = {};
+    rivalTeams.forEach(rival => {
+        rival.picks?.forEach(p => {
+            rivalPlayerCounts[p.element] = (rivalPlayerCounts[p.element] || 0) + 1;
+        });
+    });
+
+    const differentials = [];
+    userTeam.picks.forEach(pick => {
+        if (!rivalPlayerCounts[pick.element]) {
+            const player = players.find(p => p.id === pick.element);
+            if (player) differentials.push(enhancePlayer(player, teams));
+        }
+    });
+
+    // 2. Block Suggestions (Players all rivals own, User doesn't)
+    const numRivals = rivalTeams.length;
+    const blocks = [];
+
+    Object.entries(rivalPlayerCounts).forEach(([playerId, count]) => {
+        if (count === numRivals && !userPlayerIds.has(parseInt(playerId))) {
+            const player = players.find(p => p.id === parseInt(playerId));
+            if (player) blocks.push(enhancePlayer(player, teams));
+        }
+    });
+
+    // 3. Captaincy Risk
+    const rivalCaptains = rivalTeams.map(rival => {
+        const captainPick = rival.picks?.find(p => p.is_captain);
+        return captainPick ? captainPick.element : null;
+    }).filter(Boolean);
+
+    const userCaptain = userTeam.picks.find(p => p.is_captain)?.element;
+
+    const captainCounts = {};
+    rivalCaptains.forEach(id => captainCounts[id] = (captainCounts[id] || 0) + 1);
+
+    const topRivalCaptainId = Object.entries(captainCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const topRivalCaptain = topRivalCaptainId ? players.find(p => p.id === parseInt(topRivalCaptainId)) : null;
+
+    return {
+        differentials,
+        blocks,
+        captainRisk: {
+            topRivalCaptain: topRivalCaptain ? enhancePlayer(topRivalCaptain, teams) : null,
+            isDifferent: topRivalCaptainId && parseInt(topRivalCaptainId) !== userCaptain,
+            rivalCount: captainCounts[topRivalCaptainId] || 0
+        }
+    };
+}
+
+export function getTransferSuggestions(userTeam, bootstrapData) {
+    const players = bootstrapData.elements;
+    const teams = bootstrapData.teams;
+    const userPlayerIds = new Set(userTeam.picks.map(p => p.element));
+
+    const currentSquad = userTeam.picks.map(pick => players.find(p => p.id === pick.element)).filter(Boolean);
+
+    // Sort by lowest form
+    const potentialOuts = currentSquad
+        .filter(p => parseFloat(p.form) < 3.0)
+        .sort((a, b) => parseFloat(a.form) - parseFloat(b.form));
+
+    const suggestedOut = potentialOuts[0] || currentSquad[0];
+
+    // Filter available players not in team
+    const availablePlayers = players.filter(p => !userPlayerIds.has(p.id) && p.status === 'a');
+
+    // Simple heuristic: Best form player
+    const suggestedIn = availablePlayers
+        .filter(p => parseFloat(p.form) > 5.0)
+        .sort((a, b) => parseFloat(a.form) - parseFloat(b.form))[0]
+        || availablePlayers.sort((a, b) => parseFloat(b.ep_next) - parseFloat(a.ep_next))[0];
+
+    return {
+        out: enhancePlayer(suggestedOut, teams),
+        in: enhancePlayer(suggestedIn, teams)
+    };
+}
