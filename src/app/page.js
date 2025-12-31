@@ -1,17 +1,21 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import ResultsScreen from '@/components/ResultsScreen';
 
-import { generatePicks } from '@/utils/fplLogic';
+import { generateStrategyPicks } from '@/utils/fplLogic';
 
 export default function Home() {
   const [step, setStep] = useState('input'); // input, loading, results
   const [picks, setPicks] = useState(null);
   const [userData, setUserData] = useState(null);
   const [bootstrapData, setBootstrapData] = useState(null);
+  const [fixtures, setFixtures] = useState(null);
+  const [fplId, setFplId] = useState('');
+  const [strategyMode, setStrategyMode] = useState('DEFEND');
 
-  const handleStart = async (fplId) => {
+  const handleStart = async (id) => {
+    setFplId(id);
     setStep('loading');
     try {
       // 1. Fetch Bootstrap Data
@@ -21,13 +25,16 @@ export default function Home() {
       setBootstrapData(bootstrapDataJson);
 
       // 2. Determine Gameweek
-      const currentEvent = bootstrapDataJson.events.find(e => e.is_current) || bootstrapDataJson.events.find(e => e.is_next);
-      const gwId = currentEvent ? currentEvent.id : 1;
+      const event = bootstrapDataJson.events.find(e => e.is_next) || bootstrapDataJson.events.find(e => e.is_current);
+      const gwId = event ? event.id : 1;
 
-      console.log('Determined GW:', gwId);
+      // 3. Fetch Fixtures
+      const fixturesRes = await fetch(`/api/fpl/fixtures?gw=${gwId}`);
+      const fixturesJson = await fixturesRes.json();
+      setFixtures(fixturesJson);
 
-      // 3. Fetch User Picks
-      const userRes = await fetch(`/api/fpl/picks/${fplId}?gw=${gwId}`);
+      // 4. Fetch User Picks
+      const userRes = await fetch(`/api/fpl/picks/${id}?gw=${gwId}`);
       if (!userRes.ok) {
         const errData = await userRes.json().catch(() => ({}));
         throw new Error(errData.error || 'Could not find team. Check ID.');
@@ -35,10 +42,8 @@ export default function Home() {
       const userDataJson = await userRes.json();
       setUserData(userDataJson);
 
-      // 4. Generate Picks
-      const generatedPicks = generatePicks(bootstrapDataJson, userDataJson);
-
-      setPicks(generatedPicks);
+      // 5. Generate Picks
+      updatePicks('DEFEND', bootstrapDataJson, fixturesJson, userDataJson);
       setStep('results');
     } catch (error) {
       console.error(error);
@@ -47,11 +52,22 @@ export default function Home() {
     }
   };
 
+  const updatePicks = (mode, bData = bootstrapData, fData = fixtures, uData = userData) => {
+    if (!bData || !fData || !uData) return;
+    const generated = generateStrategyPicks(bData, fData, uData, mode);
+    setPicks(generated);
+  };
+
+  const handleModeChange = (newMode) => {
+    setStrategyMode(newMode);
+    updatePicks(newMode);
+  };
+
   const handleReset = () => {
     setStep('input');
     setPicks(null);
     setUserData(null);
-    // bootstrapData can stay in memory potentially, but resetting for cleanliness is fine
+    setFplId('');
   };
 
   return (
@@ -65,9 +81,12 @@ export default function Home() {
             userTeam={userData}
             bootstrapData={bootstrapData}
             onReset={handleReset}
+            strategyMode={strategyMode}
+            onModeChange={handleModeChange}
           />
         )}
       </main>
     </div>
   );
 }
+

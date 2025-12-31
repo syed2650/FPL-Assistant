@@ -9,6 +9,9 @@
 
     --font-geist-sans: 'Geist Sans', sans-serif;
     --font-geist-mono: 'Geist Mono', monospace;
+
+    --defend: #10b981;
+    --chase: #f59e0b;
 }
 
 body {
@@ -745,4 +748,106 @@ h3 {
 
 .animate-pulse {
     animation: pulse-soft 2s infinite ease-in-out;
+}
+
+/* Strategy Toggle */
+.strategy-toggle {
+    display: flex;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    border-radius: 999px;
+    border: 1px solid var(--glass-border);
+    width: fit-content;
+    margin: 1.5rem auto;
+}
+
+.toggle-btn {
+    padding: 0.6rem 1.5rem;
+    border-radius: 999px;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.toggle-btn.active.defend {
+    background: var(--defend);
+    color: white;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.toggle-btn.active.chase {
+    background: var(--chase);
+    color: white;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.strategy-desc {
+    font-size: 0.9rem;
+    color: #94a3b8;
+    max-width: 400px;
+    margin: 0 auto 2rem;
+    font-style: italic;
+}
+
+/* Why Explanations */
+.why-section {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 1.5rem;
+    text-align: left;
+}
+
+.why-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #cbd5e1;
+    margin-bottom: 0.5rem;
+    letter-spacing: 1px;
+    font-weight: 800;
+}
+
+.why-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.why-item {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    line-height: 1.4;
+    margin-bottom: 0.4rem;
+    display: flex;
+    gap: 8px;
+}
+
+.why-item:before {
+    content: "•";
+    color: var(--accent);
+}
+
+.safety-score-label {
+    color: var(--defend);
+    font-weight: bold;
+}
+
+.swing-score-label {
+    color: var(--chase);
+    font-weight: bold;
+}
+
+.impact-badge {
+    background: rgba(139, 92, 246, 0.2);
+    color: #a78bfa;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
 }
